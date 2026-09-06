@@ -1,5 +1,7 @@
 # Blochchain FET Farm Access-Control Demo
 
+> **Data provenance:** The datasets in this repository are real measured data. The current data collection was formed by merging the contents of two original data folders into one repository structure. The merge changed only the organization and consolidation of the records; it did not create artificial observations.
+
 ## Prerequisites
 
 Target platform: **clean Ubuntu 22.04 LTS** on x86_64 with a user that can run Docker.
