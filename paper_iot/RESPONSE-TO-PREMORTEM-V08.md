@@ -97,7 +97,7 @@ trade-offs named explicitly (no durable per-read audit transaction,
 possible cross-peer state divergence, revocation freshness needing another
 mechanism) rather than called the unqualified "highest-value change." The
 external-comparison subsection was cut to one paragraph, dropping the
-simulation comparison that added an order-of-magnitude claim without a
+secondary comparison that added an order-of-magnitude claim without a
 controlled basis for it.
 
 **R05 — RBAC/security.** The single biggest structural addition this
