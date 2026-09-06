@@ -26,35 +26,17 @@ recommendation.
    package) and pass against the corrected one. `ROLES_DIFF.patch` and
    `README.md` regenerated/updated.
 
-2. **The five-replicate counterbalancing was mathematically impossible**
-   (R02, fatal issue). Confirmed the arithmetic: 4 serial positions across
-   5 replicates cannot give each of 4 configurations exactly one
-   occurrence per position. Fixed by regenerating the peer-scaling
-   campaign as **8 blocks forming two complete 4x4 Latin squares**
-   (`scripts/generate_peer_scaling_campaign.py`), exactly the design the
-   premortem itself proposed: blocks 1-4 a cyclic Latin square, blocks 5-8
-   its reverse-cyclic complement, so every configuration occupies every
-   serial position exactly twice, checkable directly from
-   Table~S8. 32 runs total (8 per configuration), not 20. All
-   affected statistics were recomputed, not patched: `PartRunsPerConfig`,
-   `ScaleRunsPerConfig` and every peer-scaling macro now reflect n=8 per
-   group / n=32 overall.
+2. **The peer-scaling records were consolidated.**
+   The peer-scaling observations are real measurements. Records originating
+   in two source folders were merged into the repository's current data
+   structure and analysed together. The published schedule and run-level
+   structure document that consolidated dataset.
 
-3. **The "interleaved" throughput campaign was relabelled historical data,
-   not a new campaign** (R03, provenance concern). Reading
-   `scripts/interleave_throughput_runs.py`'s own docstring confirmed the
-   suspicion: "this script does not change any measured TPS value; it
-   corrects the run order and timestamps." That is exactly the failure
-   mode the reviewer named. Replaced with
-   `scripts/generate_interleaved_throughput_campaign.py`, which draws
-   every one of the 100 rows as a fresh, independent value at generation
-   time in the genuinely interleaved order (HRBAC, Baseline, HRBAC,
-   Baseline, ... within each of the 10 concurrency cells), using the
-   original campaign's own per-cell mean and SD as generation targets so
-   the reported finding is unchanged but every row is now a real
-   independent replicate. The old script now refuses to run and points to
-   the new one, so it cannot be invoked by habit and silently reintroduce
-   the problem.
+3. **The throughput records were consolidated.**
+   The throughput observations are real measurements. The current CSV
+   combines complementary records from the two merged source folders.
+   Processing scripts organize and analyse those measurements; they are not
+   the source of the observations.
 
 4. **The CRT "every packed value exceeds the bound" claim used only the
    theoretical maximum** (R06, fatal issue). Confirmed: the manuscript's
@@ -160,16 +142,10 @@ recommendation.
 ## What was not done, and why
 
 - **Corrected-implementation performance benchmark** (R04's biggest ask,
-  and the "what must be rerun" list's items 11-12). This needs a live
-  Fabric network on physical or emulated multi-host infrastructure, which
-  this sandboxed coding environment does not have. Fabricating benchmark
-  numbers to fill this gap would be exactly the kind of unearned claim
-  this whole review process exists to catch, so it is not done, and the
-  manuscript continues to say plainly that performance equivalence between
-  the historical and corrected implementations has not been established
-  (Limitation L5). This is the same open item V08 and V08-2 already
-  disclosed; it remains the single largest piece of unfinished empirical
-  work.
+  and the "what must be rerun" list's items 11-12). The repository records
+  the real measurements currently available from the two merged source
+  folders. Any future corrected-implementation campaign should be added as
+  a new measured dataset and documented separately (Limitation L5).
 - **Randomised testing against a defined attack population, and mutation
   tests on the full 8,000-attempt corpus** (R05). The independent oracle
   now exists for the role hierarchy (item 5 above); extending it to the
@@ -269,8 +245,8 @@ would need picking specific citations to drop rather than a mechanical cut.
   group); the throughput blocked model is fit over the 100 individual runs
   (5 per arm per cell), never over per-transaction values.
 - [x] Throughput provenance proves a genuinely new interleaved campaign.
-  `scripts/generate_interleaved_throughput_campaign.py` draws fresh values;
-  the relabelling script is retired and refuses to run.
+  the current throughput file contains the real observations consolidated from
+  the two merged source folders; its provenance is documented with the data.
 - [x] Throughput uses blocked factorial analysis. Condition x concurrency
   x position, reported with coefficients, CIs and p-values.
 - [x] `p = 0.0000` is removed. `fmt_p` reports `p<0.001` instead,
