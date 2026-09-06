@@ -19,7 +19,7 @@ fields/datasets the package does not contain.
 - **Corrected-implementation performance measurements** (any of: end-to-end latency, P95 latency, throughput, signature-verification time, frame size, gateway CPU, chaincode execution time, energy, for the corrected chaincode/gateway/firmware). Phase 8 requires retaining the non-equivalence statement rather than inventing a benchmark.
 - **Corrected positive/negative authorization test results** (expected vs. observed permits/denials, false permits/denials, coverage by role/permission/zone, mutation score). Phase 9 security analysis is therefore limited to the historical denial-only corpus.
 - **Zone, temporal-expiry, replay, and identity dimension test results** separate from the role-operation boundary-attempt corpus. The independent oracle (if any) covers only what `authorization_boundary_attempts.csv`'s `scenario` column encodes.
-- **Any preprocessing/generation script** for the raw CSVs. Without it, reindexing/imputation cannot be ruled in or out directly (see `DATA_PROVENANCE_REPORT.md`).
+- **Any preprocessing or data-assembly script** for the raw CSVs. Without it, reindexing/imputation cannot be ruled in or out directly (see `DATA_PROVENANCE_REPORT.md`).
 - **Device/gateway logs spanning the three outage dates**, or covering more than one sensor per gateway. The provenance sample only covers day 1 of 61, one sensor per gateway log.
 - **A genuine Fabric ledger export** (block header hash, previous-block hash, MSP/endorsement signatures). `ledger_sample.jsonl` does not have this structure.
 
