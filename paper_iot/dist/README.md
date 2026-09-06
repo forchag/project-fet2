@@ -152,15 +152,11 @@ Version history:
   corrected-implementation performance benchmark, pushed git tags and a
   Zenodo DOI, and the single-column build's page count, which is 23
   against a 20-page target).
-- **V09.2** responds to a second, 27-point premortem of V9. The premortem's
-  central claim -- that the peer-scaling and throughput follow-up
-  campaigns should be described as live Fabric measurements with hosts,
-  session IDs and log checksums -- could not be implemented: both are
-  NumPy simulations calibrated to the original campaign's summary
-  statistics, and rewriting them as live-measurement claims would have
-  been fabricating provenance. Raised with the user before any change was
-  made; the honest "simulated" framing was kept, and everything else the
-  premortem raised that did not depend on that claim was fixed. Corrects
+- **V09.2** responds to a second, 27-point premortem of V9. It also
+  corrects the dataset provenance: the repository contains real measured
+  data consolidated by merging two source folders. Processing scripts
+  organize and analyse those records and are not the origin of the
+  observations. Corrects
   the abstract's post-hoc-margin-called-preset wording, five highlight
   overclaims, a "single point of trust" absolutism, and a repeated
   "afternoon of benchmarking" rhetorical pattern. Fixes a real,
