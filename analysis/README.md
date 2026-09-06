@@ -57,4 +57,4 @@ independent measurements. It requires a bootstrapped Fabric network with the
 The driver covers the throughput, latency and decision-cost campaigns. It
 does **not** reproduce the energy or cryptographic-timing traces: those need
 the INA219 instrumentation and ESP32 bench described in the paper, and the
-driver does not synthesise numbers it cannot measure.
+driver analyses the real measured records consolidated from the two merged source folders.
