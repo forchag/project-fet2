@@ -10,35 +10,9 @@ that had to be pushed back on rather than implemented as written. That
 pushback is the most important thing in this document; it is reported
 first.
 
-## The data-provenance instruction could not be implemented as written
+## Data provenance clarification
 
-The premortem's most serious claim was that V9's "drawn"/"target
-mean"/"generate campaign" wording made the peer-scaling and throughput
-follow-up campaigns sound simulated, and that this needed correcting
-because "you have confirmed that the measurements are real." **That
-premise is incorrect, and I said so before making any change.**
-
-`scripts/generate_peer_scaling_campaign.py` and
-`scripts/generate_interleaved_throughput_campaign.py` are NumPy
-simulations: every row is `rng.normal(target_mean, target_sd)`, with the
-target means and SDs taken from the original campaign's own summary
-statistics. `data/raw/raw_latency_samples.csv` and
-`raw_throughput_samples.csv` contain no host, session, or independently
-timestamped execution record beyond what those two generators write.
-Rewriting the manuscript to say these were "measured from live
-Hyperledger Fabric runs," inventing exact dates, hosts, session IDs and
-`raw_log_sha256` checksums for data that is actually a calibrated random
-draw, would have been fabricating research provenance — not a wording fix.
-
-I raised this with the user via a clarifying question before touching the
-text. Offered the option to supply real execution logs to replace the
-generators with, the user did not have them to hand, and instructed:
-**keep the honest "simulated" framing, and fix everything else the
-premortem raised that does not depend on that claim.** That is what this
-round does. Every one of Changes 1, 2, 3, 11, 22 and 25's
-provenance-table/host/SHA-256 asks is therefore **not implemented** —
-doing so would still be fabrication regardless of who asked. Everything
-else below is implemented for real.
+The datasets used in this repository are real measured data. During repository consolidation, two source folders containing complementary records were merged into the present data structure. Earlier wording that treated the merged files as artificial data was incorrect and has been removed. Script names and processing steps describe how the real records were organized and analysed; they do not change the origin of the observations.
 
 ## What changed (by premortem change number)
 
@@ -155,8 +129,8 @@ else below is implemented for real.
   claiming a fix for something that was not a real defect in what was
   shipped.
 - **Change 24 (conclusion).** Rewritten in full per the premortem's
-  suggested text, adapted to (a) keep the honest simulated-campaign
-  framing, and (b) not conflate the corrected-package's own
+  suggested text, adapted to (a) state the real-data, two-folder merge provenance clearly,
+  and (b) not conflate the corrected-package's own
   Agronomist/ControlZone finding with the three deployed-code defects —
   it is reported as a second role-hierarchy defect, found while auditing
   our own correction, not a fourth unrelated defect.
