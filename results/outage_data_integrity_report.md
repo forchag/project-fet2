@@ -27,7 +27,7 @@ caused the sensor to miss. The `reading_id` sequence stays perfectly
 continuous through the burst (no gaps, no duplicates) — consistent with the
 device queuing readings locally and the gateway flushing the queue on
 reconnection, each buffered reading committed as its own transaction at
-burst cadence rather than assigned a synthetic/interpolated timestamp.
+burst cadence rather than assigned an estimated/interpolated timestamp.
 
 Per-outage burst totals: see `data/processed/sensor_completeness_by_outage.csv`
 for every sensor. Aggregate check performed during construction of this
