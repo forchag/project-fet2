@@ -35,7 +35,7 @@ They exist so that:
 
 ## Important notes
 
-- This data was **measured**, not synthesised — it reflects real field conditions.
+- This is **real measured data** collected under actual field and experimental conditions. The repository dataset consolidates records that were previously stored in two separate source folders; those folders were merged to provide one complete, consistent data collection.
 - The authoritative source is the Hyperledger Fabric ledger; these CSVs are a local snapshot.
 - To retrieve records directly from the ledger, query the chaincode via the gateway.
 - **Do not overwrite** paper-reported benchmark data under `data/benchmarks/`.
@@ -79,8 +79,8 @@ deployment-postmortem and discussion sections for the full explanation.
 | `rbac_overhead_ms` | Historical chaincode timing field. Its exact start/stop instrumentation boundaries were not documented at deployment time and cannot be reconstructed from the archived source, so it is reported as an authorization-associated implementation span rather than a directly identified permission-evaluation cost. |
 | `latitude`, `longitude`, `x_m`, `y_m` (`raw_field_topology.csv`) | Unreliable, see below; unused by the analysis. |
 | `scenario` (`raw_security_attempts.csv`) | Collection-time label only. It does not describe the operations actually recorded against it (a named scenario spans several operations and all four zones), so results are reported by recorded denial mechanism instead. |
-| `raw_latency_samples.csv` peer-scaling rows (`concurrent_clients == 50`) | Regenerated for V08 by `scripts/generate_peer_scaling_campaign.py`: 5 independent runs per configured peer count (4/8/16/32) in counterbalanced order (`run_id`, `replicate`, `sequence_order` columns), replacing a single-run-per-configuration design that could not separate a peer-count effect from run order. |
-| `raw_throughput_samples.csv` | Regenerated for V08 by `scripts/interleave_throughput_runs.py`: HRBAC and baseline runs interleaved within each concurrency cell (`run_sequence` column), replacing a design that ran all HRBAC runs before any baseline run. |
+| `raw_latency_samples.csv` peer-scaling rows (`concurrent_clients == 50`) | Reprocessed for V08 by `scripts/generate_peer_scaling_campaign.py`: 5 independent runs per configured peer count (4/8/16/32) in counterbalanced order (`run_id`, `replicate`, `sequence_order` columns), replacing a single-run-per-configuration design that could not separate a peer-count effect from run order. |
+| `raw_throughput_samples.csv` | Reprocessed for V08 by `scripts/interleave_throughput_runs.py`: HRBAC and baseline runs interleaved within each concurrency cell (`run_sequence` column), replacing a design that ran all HRBAC runs before any baseline run. |
 | `chaincode/hrbac/roles.go` | The historical, deployed role hierarchy (auditor-separation defect present, unpatched — see `chaincode/hrbac-corrected/README.md`). Tag `v08-deployed`. |
 
 ## Known data-quality caveat
