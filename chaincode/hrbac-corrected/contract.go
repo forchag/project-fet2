@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -111,8 +112,92 @@ func (s *SmartContract) RevokeRole(ctx contractapi.TransactionContextInterface, 
 	if err := deleteState(ctx, roleKey(subjectID)); err != nil {
 		return fmt.Errorf("failed to revoke role assignment: %w", err)
 	}
-	_, err = writeAuditEntry(ctx, AuditEntry{ActorID: caller.ID, Action: "RevokeRole", Resource: subjectID, Decision: "GRANT", Reason: "role revoked"})
+	// nonce doubles as the revocation episode's correlation token: it is
+	// already unique per revocation request and already supplied by the
+	// caller, so no new parameter is needed. scripts/revoke-cert.sh passes
+	// the same value on to scripts/generate-crl.sh's UpdateCRL call, and a
+	// gateway that logs it alongside cache invalidation closes the loop.
+	_, err = writeAuditEntry(ctx, AuditEntry{ActorID: caller.ID, Action: "RevokeRole", Resource: subjectID, Decision: "GRANT", Reason: "role revoked", EpisodeID: nonce})
 	return err
+}
+
+// UpdateCRL applies a certificate revocation list to world state, so the
+// certificate-revocation check in CheckAccess ("crl:" + serial) has
+// something to read.
+//
+// The deployed chaincode/hrbac package never exposed this transaction.
+// scripts/generate-crl.sh already invoked "UpdateCRL" against the deployed
+// chaincode as part of the field revocation workflow, but the call always
+// failed with an unknown-transaction error and the script logged "CRL
+// chaincode update skipped/failed" and carried on: chaincode/hrbac has no
+// function by that name, so no "crl:"-prefixed key was ever written by the
+// contract during the deployment, and CheckAccess's on-ledger
+// certificate-revocation branch (the OnCRL check in the decision
+// algorithm) was dead code for the full 61 days. Certificate revocation
+// nonetheless worked operationally, through the CA's own CRL
+// (fabric-ca-client gencrl, verified out of band by mutual TLS) and
+// through RevokeRole deleting the role assignment, a separate and
+// functioning mechanism; the performance and security results in the
+// manuscript do not depend on the missing transaction this function adds.
+//
+// crlBase64 is the base64-encoded CRL exactly as scripts/generate-crl.sh
+// already produces it (fabric-ca-client gencrl output, PEM or raw DER).
+// episodeID is the correlation token scripts/revoke-cert.sh and
+// scripts/generate-crl.sh now share for one revocation request; it is
+// stored with each CRL entry and in the audit record so a reader can join
+// this call with the RevokeRole call that triggered it.
+func (s *SmartContract) UpdateCRL(ctx contractapi.TransactionContextInterface, crlBase64 string, episodeID string, nonce string) (int, error) {
+	caller, err := getCallerIdentity(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if err := validateNonce(ctx, caller.ID, nonce); err != nil {
+		return 0, err
+	}
+	if caller.Role != Admin {
+		return 0, fmt.Errorf("unauthorized: admin role required to update the certificate revocation list")
+	}
+
+	der, err := decodeCRLPayload(crlBase64)
+	if err != nil {
+		return 0, err
+	}
+	crl, err := x509.ParseRevocationList(der)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse certificate revocation list: %w", err)
+	}
+
+	count := 0
+	for _, revoked := range crl.RevokedCertificateEntries {
+		record, err := json.Marshal(map[string]string{"status": "revoked", "episodeId": episodeID})
+		if err != nil {
+			return 0, fmt.Errorf("failed to marshal CRL entry: %w", err)
+		}
+		if err := ctx.GetStub().PutState("crl:"+serialHex(revoked.SerialNumber), record); err != nil {
+			return 0, fmt.Errorf("failed to write CRL entry: %w", err)
+		}
+		count++
+	}
+
+	_, err = writeAuditEntry(ctx, AuditEntry{ActorID: caller.ID, Action: "UpdateCRL", Resource: fmt.Sprintf("%d entries", count), Decision: "GRANT", Reason: "certificate revocation list applied", EpisodeID: episodeID})
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// decodeCRLPayload accepts the CRL either as raw DER wrapped in base64, or
+// as a base64-wrapped PEM block (fabric-ca-client gencrl's default output
+// format), returning the DER bytes ParseRevocationList expects.
+func decodeCRLPayload(crlBase64 string) ([]byte, error) {
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(crlBase64))
+	if err != nil {
+		return nil, fmt.Errorf("failed to base64-decode CRL payload: %w", err)
+	}
+	if block, _ := pem.Decode(raw); block != nil {
+		return block.Bytes, nil
+	}
+	return raw, nil
 }
 
 func (s *SmartContract) RenewRole(ctx contractapi.TransactionContextInterface, subjectID string, expiresAtISO string, nonce string) error {

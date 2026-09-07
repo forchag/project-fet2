@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from dataclasses import dataclass
 from typing import Any
+
+LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -18,7 +21,9 @@ class PolicyCache:
     """TTL cache for access-control decisions.
 
     The cache is intentionally process-local only and never persists decisions to
-    disk, so revocation exposure is bounded by the configured TTL.
+    disk, so revocation exposure is bounded by the configured TTL for any entry
+    that event-driven invalidation (``invalidate``/``invalidate_all`` below)
+    does not reach first.
     """
 
     def __init__(self, ttl_seconds: float = 300, clock=time.time) -> None:
@@ -46,10 +51,26 @@ class PolicyCache:
         with self._lock:
             self._entries[key] = _CacheEntry(value=value, expires_at=self._clock() + ttl)
 
-    def invalidate(self, key: str) -> None:
+    def invalidate(self, key: str, episode_id: str | None = None) -> None:
+        """Drop one cached decision, for instance because a CRL event named
+        the subject it belongs to.
+
+        ``episode_id`` is the correlation token
+        chaincode/hrbac-corrected/contract.go's ``RevokeRole`` and
+        ``UpdateCRL`` stamp on their audit entries. Logging it here, rather
+        than only performing the cache eviction silently, is what makes
+        cache invalidation a joinable stage of the revocation pipeline
+        instead of an unobserved side effect: see this repository's
+        revocation-observability discussion for why that join previously
+        did not exist.
+        """
         with self._lock:
             self._entries.pop(key, None)
+        if episode_id is not None:
+            LOG.info("revocation cache invalidation key=%s episode_id=%s", key, episode_id)
 
-    def invalidate_all(self) -> None:
+    def invalidate_all(self, episode_id: str | None = None) -> None:
         with self._lock:
             self._entries.clear()
+        if episode_id is not None:
+            LOG.info("revocation cache invalidation key=* episode_id=%s", episode_id)

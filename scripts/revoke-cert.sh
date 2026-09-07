@@ -28,15 +28,23 @@ main() {
   export FABRIC_CA_CLIENT_HOME
   log "Revoking certificate(s) for ${id} with reason ${reason}"
   fabric-ca-client revoke --caname "${CA_NAME}" -e "${id}" -r "${reason}" --gencrl --tls.certfiles "${TLS_CERTFILES}"
+
+  # One token identifies this whole revocation request across every stage
+  # of the pipeline: this chaincode call, the CRL update it triggers below,
+  # and (once a gateway logs it) cache invalidation at each zone. Without a
+  # shared identifier, none of those stage records can be joined back into
+  # one episode; see chaincode/hrbac-corrected/README.md, "Revocation-episode
+  # correlation". revoke-cert.sh generates it because it is the first thing
+  # to run for a given revocation.
+  local episode_id="revoke-${id}-$(date -u '+%s')"
   if command -v peer >/dev/null 2>&1; then
     set_admin_peer
-    local nonce="revoke-${id}-$(date -u '+%s')"
     peer chaincode invoke -C "${CHANNEL_NAME}" -n "${CHAINCODE_NAME}" \
       -o "${ORDERER_ADDRESS}" --ordererTLSHostnameOverride orderer0.farm.tn --tls --cafile "${ORDERER_TLS_CA}" \
-      -c "{\"Args\":[\"RevokeRole\",\"${id}\",\"${nonce}\"]}" >/dev/null || log "Role revocation invoke failed; CA revocation succeeded"
+      -c "{\"Args\":[\"RevokeRole\",\"${id}\",\"${episode_id}\"]}" >/dev/null || log "Role revocation invoke failed; CA revocation succeeded"
   fi
-  "${ROOT_DIR}/scripts/generate-crl.sh"
-  log "Revocation workflow complete for ${id}"
+  CRL_EPISODE_ID="${episode_id}" "${ROOT_DIR}/scripts/generate-crl.sh"
+  log "Revocation workflow complete for ${id} (episode ${episode_id})"
 }
 
 main "$@"
