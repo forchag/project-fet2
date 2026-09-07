@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"math/big"
@@ -422,6 +423,110 @@ func TestCertificateRevocation(t *testing.T) {
 
 	require.NoError(t, err)
 	require.False(t, ok)
+}
+
+// buildTestCRL creates a minimal, syntactically valid CRL (parseable by
+// x509.ParseRevocationList) revoking exactly the given serials. Signature
+// validity is irrelevant here: UpdateCRL parses the CRL to recover serial
+// numbers, exactly as the deployed operational workflow's fabric-ca-client
+// output would be parsed, and does not check who signed it (revocation
+// authority is enforced separately, by requiring the Admin role).
+func buildTestCRL(t *testing.T, serials ...int64) string {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	require.NoError(t, err)
+	issuer := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "test-ca"},
+		NotBefore:    time.Unix(1_600_000_000, 0),
+		NotAfter:     time.Unix(1_900_000_000, 0),
+		KeyUsage:     x509.KeyUsageCRLSign | x509.KeyUsageCertSign,
+		IsCA:         true,
+	}
+	issuerDER, err := x509.CreateCertificate(rand.Reader, issuer, issuer, &key.PublicKey, key)
+	require.NoError(t, err)
+	issuerCert, err := x509.ParseCertificate(issuerDER)
+	require.NoError(t, err)
+
+	entries := make([]x509.RevocationListEntry, 0, len(serials))
+	for _, serial := range serials {
+		entries = append(entries, x509.RevocationListEntry{
+			SerialNumber:   big.NewInt(serial),
+			RevocationTime: time.Unix(1_700_000_000, 0),
+		})
+	}
+	template := &x509.RevocationList{
+		Number:                    big.NewInt(1),
+		ThisUpdate:                time.Unix(1_700_000_000, 0),
+		NextUpdate:                time.Unix(1_700_100_000, 0),
+		RevokedCertificateEntries: entries,
+	}
+	crlDER, err := x509.CreateRevocationList(rand.Reader, template, issuerCert, key)
+	require.NoError(t, err)
+	return base64.StdEncoding.EncodeToString(crlDER)
+}
+
+func TestUpdateCRLWritesRevocationEntriesAndDeniesCheckAccess(t *testing.T) {
+	ctx, stub := newMockContext("tx-crl-assign", 1_700_000_000)
+	s := &SmartContract{}
+	require.NoError(t, s.AssignRole(ctx, "farmer-1", string(Farmer), "North", futureISO(1_800_000_000), "n-assign"))
+	stub.setCaller(t, "admin", Admin, "North", 1)
+	stub.setTx("tx-update-crl", 1_700_000_001)
+
+	crlB64 := buildTestCRL(t, 255)
+	count, err := s.UpdateCRL(ctx, crlB64, "episode-2025-09-30-usr-0048", "n-crl")
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.True(t, stub.state["crl:ff"] != nil, "UpdateCRL must write a crl: entry for the revoked serial")
+
+	stub.setCaller(t, "farmer-1", Farmer, "North", 255)
+	stub.setTx("tx-crl-check", 1_700_000_002)
+	ok, err := s.CheckAccess(ctx, "farmer-1", string(WriteSensor), "North", "")
+	require.NoError(t, err)
+	require.False(t, ok, "CheckAccess must deny a caller whose certificate serial UpdateCRL just revoked")
+}
+
+func TestUpdateCRLRequiresAdmin(t *testing.T) {
+	ctx, stub := newMockContext("tx-crl-nonadmin", 1_700_000_000)
+	s := &SmartContract{}
+	require.NoError(t, s.AssignRole(ctx, "farmer-1", string(Farmer), "North", futureISO(1_800_000_000), "n-assign0"))
+	stub.setCaller(t, "farmer-1", Farmer, "North", 101)
+	stub.setTx("tx-crl-nonadmin-2", 1_700_000_001)
+
+	_, err := s.UpdateCRL(ctx, buildTestCRL(t, 42), "episode-x", "n-crl-2")
+	require.ErrorContains(t, err, "admin role required")
+}
+
+func TestUpdateCRLRecordsEpisodeIDOnAuditEntry(t *testing.T) {
+	ctx, stub := newMockContext("tx-crl-assign2", 1_700_000_000)
+	s := &SmartContract{}
+	stub.setCaller(t, "admin", Admin, "North", 1)
+	stub.setTx("tx-update-crl2", 1_700_000_001)
+
+	_, err := s.UpdateCRL(ctx, buildTestCRL(t, 7), "episode-shared-token", "n-crl-3")
+	require.NoError(t, err)
+
+	raw, ok := stub.state[auditKey("tx-update-crl2")]
+	require.True(t, ok)
+	var entry AuditEntry
+	require.NoError(t, json.Unmarshal(raw, &entry))
+	require.Equal(t, "episode-shared-token", entry.EpisodeID)
+	require.Equal(t, "UpdateCRL", entry.Action)
+}
+
+func TestRevokeRoleRecordsEpisodeIDOnAuditEntry(t *testing.T) {
+	ctx, stub := newMockContext("tx-revoke-assign2", 1_700_000_000)
+	s := &SmartContract{}
+	require.NoError(t, s.AssignRole(ctx, "farmer-2", string(Farmer), "North", futureISO(1_800_000_000), "n-assign2"))
+	stub.setTx("tx-revoke2", 1_700_000_001)
+
+	require.NoError(t, s.RevokeRole(ctx, "farmer-2", "episode-shared-token-2"))
+
+	raw, ok := stub.state[auditKey("tx-revoke2")]
+	require.True(t, ok)
+	var entry AuditEntry
+	require.NoError(t, json.Unmarshal(raw, &entry))
+	require.Equal(t, "episode-shared-token-2", entry.EpisodeID)
 }
 
 func TestPruneNonces(t *testing.T) {

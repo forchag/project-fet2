@@ -136,6 +136,32 @@ class Gateway:
     def policy_key(self, reading: SensorReading) -> str:
         return f"{reading.device_id}:{reading.zone or self.zone}:submit_reading"
 
+    def handle_revocation(self, episode_id: str | None = None) -> None:
+        """Event-driven cache invalidation for a certificate or role
+        revocation.
+
+        This is the mechanism the manuscript describes as bounding
+        revocation staleness by gossip propagation rather than the cache's
+        nominal TTL: "for a reachable gateway the cache is invalidated by
+        the CRL event itself". Before this method existed, nothing in this
+        codebase actually called ``PolicyCache.invalidate``/
+        ``invalidate_all``, so that path had no caller here; a live
+        deployment would need this (or an equivalent) wired to its Fabric
+        chaincode-event subscription, which is outside this repository's
+        scope. This method makes the intended behaviour callable and
+        tested, and, given ``episode_id``, logs it so the invalidation
+        joins the same episode as the RevokeRole/UpdateCRL calls that
+        triggered it.
+
+        Invalidating the whole cache rather than one subject's key is
+        deliberate: a cache entry is keyed by device and zone, not by the
+        role subject whose revocation caused a decision to be cached, so
+        there is no cheaper way to guarantee a revoked subject's cached
+        grant is gone without also tracking that association, which this
+        cache does not do.
+        """
+        self.policy_cache.invalidate_all(episode_id)
+
     def _decision_is_grant(self, decision: Any) -> bool:
         if isinstance(decision, bool):
             return decision

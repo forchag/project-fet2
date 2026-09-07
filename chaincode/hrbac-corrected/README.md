@@ -41,13 +41,52 @@ same way: it fails against `chaincode/hrbac`'s hierarchy (confirmed by a
 throwaway copy of the test run against that package during development)
 and passes here.
 
+## A third defect, found while adding the revocation fix below
+
+`chaincode/hrbac/contract.go`'s `CheckAccess` reads a `crl:<serial>` world
+state key to decide whether a caller's certificate has been revoked, but no
+transaction in that package ever writes such a key. `scripts/generate-crl.sh`
+already invoked an `UpdateCRL` transaction as part of the field revocation
+workflow, but the deployed chaincode has no function by that name: the
+invoke always failed with an unknown-transaction error, the script logged
+"CRL chaincode update skipped/failed" and continued, and the on-ledger
+certificate-revocation check was dead code for the full 61-day deployment.
+Certificate revocation still worked operationally, through the Fabric CA's
+own CRL enforced at the mutual-TLS layer and through `RevokeRole` deleting
+the role assignment, a separate and functioning mechanism, so this defect
+does not put any reported measurement in question. `UpdateCRL` is added
+here: it parses a CRL (exactly the bytes `scripts/generate-crl.sh` already
+produces), writes a `crl:<serial>` entry for each revoked certificate, and
+is Admin-gated like the other administrative transactions.
+`TestUpdateCRLWritesRevocationEntriesAndDeniesCheckAccess` and
+`TestUpdateCRLRequiresAdmin` in `contract_test.go` are the regression tests.
+
+## Revocation-episode correlation
+
+`RevokeRole` and `UpdateCRL` both stamp a new `AuditEntry.EpisodeID` field
+with the caller-supplied correlation token: in practice, the same value
+`scripts/revoke-cert.sh` and `scripts/generate-crl.sh` now share for one
+revocation request. This is the fix for the revocation-observability gap
+the manuscript's postmortem describes: the historical trace has no key
+linking CRL publication, gossip propagation and cache invalidation into one
+episode, so end-to-end exposure could not be reconstructed. Threading one
+token through the chaincode side of the pipeline, and through
+`gateway/policy_cache.py`'s cache invalidation on the gateway side, gives a
+future deployment a real join key across all three stages.
+`TestUpdateCRLRecordsEpisodeIDOnAuditEntry` and
+`TestRevokeRoleRecordsEpisodeIDOnAuditEntry` verify the chaincode side; the
+gateway side is tested in `gateway/tests/test_policy_cache.py`. This does
+not, and cannot, resolve episodes already present in the historical trace:
+that data was collected before this change existed.
+
 ## What this does not fix
 
 The residue-encoding and signature-verification fixes described in the
 manuscript's postmortem are separate changes, already applied in
 `esp32/` and `gateway/` on the repository's main branch; this directory
-addresses only the role-hierarchy defects above. No permission other than
-the ones named in the two paragraphs above differs from
+addresses the role-hierarchy defects, the missing CRL-writer transaction,
+and revocation-episode correlation above. No permission other than the ones
+named in the role-hierarchy paragraphs differs from
 `chaincode/hrbac/roles.go`.
 
 ## Why `chaincode/hrbac/` is not simply edited in place

@@ -9,6 +9,19 @@ import (
 )
 
 // AuditEntry records a deterministic authorization or administration event.
+//
+// EpisodeID is new in this corrected package. It closes part of the
+// revocation-observability gap the manuscript's postmortem describes: the
+// historical trace has no key linking CRL publication, gossip and cache
+// invalidation into one revocation episode. RevokeRole and UpdateCRL both
+// stamp EpisodeID with the caller-supplied correlation token (in practice,
+// the same value scripts/revoke-cert.sh and scripts/generate-crl.sh now
+// share for one revocation request), so an operator or a future trace
+// collector can join the chaincode-side audit trail across both calls, and
+// a gateway that logs the same token when it invalidates its policy cache
+// (gateway/policy_cache.py) extends that join across the full pipeline.
+// This does not, and cannot, resolve episodes in the historical trace
+// already collected; it gives the next deployment a real key to collect.
 type AuditEntry struct {
 	TxID      string `json:"txId"`
 	ActorID   string `json:"actorId"`
@@ -16,6 +29,7 @@ type AuditEntry struct {
 	Resource  string `json:"resource"`
 	Decision  string `json:"decision"`
 	Reason    string `json:"reason,omitempty"`
+	EpisodeID string `json:"episodeId,omitempty"`
 	Timestamp int64  `json:"timestamp"`
 }
 
