@@ -16,6 +16,4 @@ history. Historical measurements remain associated with the deployed
 implementation; corrected code is evaluated only by the explicitly scoped
 mock-stub benchmark.
 
-Before submission, follow `ZENODO_DEPOSIT_GUIDE.md`, publish the deposit,
-and insert the issued DOI in the manuscript Data Availability statement and
-submission metadata.
+The supporting data and code are publicly archived at https://doi.org/10.5281/zenodo.22667556.

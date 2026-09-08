@@ -24,5 +24,15 @@
     "edge computing",
     "reproducible research"
   ],
-  "access_right": "open"
+  "access_right": "open",
+  "doi": "10.5281/zenodo.22667556",
+  "version": "1.0.0",
+  "license": "cc-by-4.0",
+  "related_identifiers": [
+    {
+      "identifier": "10.5281/zenodo.22667556",
+      "relation": "isIdenticalTo",
+      "scheme": "doi"
+    }
+  ]
 }
