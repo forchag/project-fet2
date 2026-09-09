@@ -87,11 +87,9 @@ sig:~~~~~ 5c59e0f3fef48a23c09ae90c1ac638d179e1058569f2469323f43907b4ab8c4\\
 \phantom{sig:~~~~~} d701931da85a762a019cda7174e5a6e418326990f5b51207119e7bd83f124fc08
 \end{quote}
 
-Ed25519-verifying \texttt{sig} against \texttt{digest} with \texttt{pubkey}
-must succeed; verifying it against the SHA-256 digest of \texttt{payload}
-with any single byte flipped must fail. \texttt{gateway/tests/test\_signature\_binding.py}
-(\texttt{test\_canonical\_vector\_matches\_firmware\_format} and
-\texttt{test\_canonical\_vector\_rejects\_single\_byte\_modification}) checks
-both directions and is the executable form of this vector.
-
+Verifying \texttt{sig} against \texttt{digest} with \texttt{pubkey} must
+succeed; verifying it against a digest of a modified \texttt{payload} must
+fail. The executable checks are
+\path{gateway/tests/test_signature_binding.py}; they cover the canonical
+firmware vector and a single-byte modification.
 

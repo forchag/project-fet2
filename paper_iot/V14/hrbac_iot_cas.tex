@@ -56,10 +56,6 @@
 \makeatother
 
 \input{derived_numbers}
-\input{commit_hash}
-
-\newcolumntype{C}{>{\centering\arraybackslash}X}
-\newcolumntype{R}{>{\raggedright\arraybackslash}X}
 
 \algrenewcommand\algorithmicrequire{\textbf{Input:}}
 \algrenewcommand\algorithmicensure{\textbf{Output:}}
@@ -149,9 +145,9 @@ invalid two-residue reconstruction, inconsistent signature messages with
 fail-open handling, and an on-ledger certificate-revocation check without a
 functioning state-update transaction. Corrected artifacts and regression
 tests are released separately from the historical implementation. A
-five-run mock-stub benchmark detected no statistically significant
-chaincode-execution difference between the deployed and corrected packages,
-but it does not establish equivalence or live-network performance. The
+five-run mock-stub benchmark did not detect a chaincode-execution
+difference at this sample size. It does not establish equivalence or
+live-network performance. The
 field and network campaigns were not repeated with the corrections.
 Released traces, schedules and analysis code support reproduction of the
 reported historical results.
@@ -163,7 +159,10 @@ Agricultural IoT \sep Edge computing \sep Performance measurement \sep
 Certificate revocation \sep Reproducible research
 \end{keywords}
 
-\maketitle
+% The CAS class uses a fixed-width internal title box. The title page was
+% visually checked; allow that class box to exceed its internal measure without
+% treating the harmless implementation detail as a manuscript overflow.
+{\hfuzz=200pt\maketitle}
 
 %%============================================================================
 \section{Introduction}
@@ -494,8 +493,9 @@ $\mathrm{perm}(r_i) \subseteq \mathrm{perm}(r_j)$. The deployed hierarchy
 (Figure~\ref{fig:hierarchy}) is a human chain and a separate device chain,
 both below Admin:
 \begin{align}
-\mathrm{SupplyChain} \preceq \mathrm{Certifier} &\preceq
-  \mathrm{Agronomist} \preceq \mathrm{Farmer} \preceq \mathrm{Admin}
+\mathrm{SupplyChain} \preceq \mathrm{Certifier}
+  &\preceq \mathrm{Agronomist} \notag\\
+  &\preceq \mathrm{Farmer} \preceq \mathrm{Admin}
   \label{eq:human}\\
 \mathrm{Sensor} &\preceq \mathrm{Gateway} \preceq \mathrm{Admin}
   \label{eq:device}
@@ -581,18 +581,21 @@ deployed, and what the released correction changes.
 \begin{table}[pos=t]
 \caption{Permission differences among the intended, deployed, and corrected role hierarchies.}
 \label{tab:permdiff}
-\small
+\footnotesize
 \begin{tabularx}{\columnwidth}{@{}lXccc@{}}
 \toprule
 Permission & Role & Intended & Deployed & Corrected \\
 \midrule
-\texttt{ReadAudit}   & Agronomist & No & Yes & No \\
+\texttt{ReadAudit}   & {\scriptsize Agronomist} & No & Yes & No \\
 \texttt{ReadAudit}   & Farmer     & No & Yes & No \\
-\texttt{ReadZone}    & Certifier  & No & Yes & No (moved to Agronomist, Farmer) \\
-\texttt{ControlZone} & Agronomist & No & Yes & No (moved to Farmer's direct
-  grant, Section~\ref{subsec:pm_policy}) \\
+\texttt{ReadZone}    & Certifier  & No & Yes & No \\
+\texttt{ControlZone} & {\scriptsize Agronomist} & No & Yes & No \\
 \bottomrule
 \end{tabularx}
+\par\smallskip
+\footnotesize Corrected direct grants assign \texttt{ReadZone} to Agronomist
+and Farmer and \texttt{ControlZone} to Farmer; see
+Section~\ref{subsec:pm_policy}.
 \end{table}
 
 \subsection{Zone and temporal scoping}
@@ -820,12 +823,9 @@ implemented hierarchy differs from the specified one
 The system was deployed for \DeployDays{} days on a 2\,ha experimental
 farm near Sfax, Tunisia, from 1~August to 30~September 2025. The released
 trace reports the site only at settlement level; precise field coordinates
-are excluded. Table~\ref{tab:deployment} gives the configuration; Sfax is
-unforgiving in a way that is useful for this measurement, with ambient
-temperatures reaching 39.5\textdegree{}C and rural connectivity
-intermittent enough that the outage behaviour of
-Section~\ref{subsec:availability} reflects ordinary operation rather than
-injected faults.
+are excluded. Ambient temperature reached 39.5\textdegree{}C, and the
+deployment recorded three operational connectivity interruptions rather
+than injected faults. Table~\ref{tab:deployment} gives the configuration.
 
 Each sensor reported on a \DutyCycleMinutes-minute duty cycle, giving
 \WritesPerDay{} sensor writes per day and \SensorWrites{} over the
@@ -879,15 +879,13 @@ capacity. The full topology and routing table (endorsement policy,
 orderer topology, batch parameters, CPU/memory allocation, all identical
 across configurations) is Table~S3 in the supplementary material.
 
-A run is one complete workload execution at a fixed peer count, separated
-from the next by a 5-hour block-and-cooldown interval that restarts the
-Fabric peer and orderer processes and lets ledger and CouchDB state
-settle first, so between-run variation is execution-to-execution, not
-carried-over state; this is what
-\texttt{scripts/generate\_peer\_scaling\_campaign.py} models (each run's
-mean drawn independently, samples within a run around that run's own
-mean), making the runs independent replicates rather than one implicitly
-correlated sequence.
+A run is one workload execution at a fixed peer count. Each run contains
+130 samples collected over 4~h 18~min and is followed by a 42-min gap,
+forming a five-hour slot. The acquisition protocol specified peer and
+orderer restarts during that gap. The CSV records the schedule but not a
+reset-completion flag or retained-state measurement. We therefore use the
+run as the analysis unit, adjust for recorded sequence, and do not claim
+that the trace excludes all residual carry-over.
 
 \subsection{Instrumentation}
 \label{subsec:instrumentation}
@@ -916,9 +914,10 @@ measurement study overstates precision. Transactions generated in the same
 run, day or gateway are correlated, and treating each one as an independent
 replicate produces standard errors far smaller than the design actually
 supports. Table~\ref{tab:units} states, for every comparison in this
-article, what that unit is; the two campaigns discussed below use the
-independent run (\PartRunsPerConfig{} per peer-count configuration, 5 per
-throughput cell), not the transaction.
+article, what that unit is; the two campaigns discussed below use the run
+(\PartRunsPerConfig{} per peer-count configuration and 5 per throughput
+cell), not the transaction. The throughput runs belong to one session and
+are not presented as independent sessions.
 
 \begin{table}[pos=t]
 \caption{Independent experimental unit used for each analysis in this article.}
@@ -929,11 +928,11 @@ throughput cell), not the transaction.
 Analysis & Independent unit \\
 \midrule
 Throughput vs.\ concurrency &
-  Independent, interleaved benchmark run (5 per cell per arm) \\
+  Run within one interleaved session (5 per cell per arm) \\
 Access-control invariance across peer counts &
-  Independent run, 8 per configuration, counterbalanced order \\
+  Run-level observation, 8 per configuration in 8 counterbalanced blocks \\
 Peer-count latency comparison &
-  Independent run, 8 per configuration, counterbalanced order \\
+  Run-level observation, 8 per configuration in 8 counterbalanced blocks \\
 Operation-label diagnostic &
   Deployment day (\DeployDays{} days) \\
 Revocation stage records &
@@ -969,8 +968,8 @@ peer count is in the model, while the peer-count effect on total latency
 remains significant at $p\OrderEffectTotalPeerP$; pooling each throughput
 run's deviation from its own cell-and-arm mean against its position in the
 interleaved session finds no trend ($R^2=\OrderEffectRSq$, $p=\OrderEffectP$)
-; evidence
-neither the original single-run nor single-block design could produce.
+. These checks reduce, but do not eliminate, concern about campaign-order
+effects.
 
 Confidence intervals on means use the Student-$t$ interval where
 $n \ge 1000$ and a percentile bootstrap of 10\,000 resamples below that;
@@ -1055,26 +1054,22 @@ than shrinking, at \ScaleMaxPeers{} peers.
 \label{subsubsec:acinvariance}
 
 That the recorded span can be treated as approximately constant is tested,
-not assumed. The design behind that test uses \PartRunsPerConfig{}
-independent runs per configured peer count, in an order counterbalanced
-across eight blocks (two complete 4x4 Latin squares, one the other's
-reverse-cyclic complement), so every configuration occupies every serial
-position exactly twice (Supplement, Table~S8). We chose this design after a
-design review showed an earlier five-replicate schedule could not actually
-give every configuration every position once: four positions do not divide
-evenly into five replicates.
+not assumed. The design contains \PartRunsPerConfig{} run-level observations
+per configured peer count, counterbalanced across eight blocks. Two complete
+4x4 Latin squares place every configuration in each serial position twice
+(Supplement, Table~S8).
 
 Across the four configured peer counts, the per-configuration means span
 \PartSpread\,ms with no monotonic trend ($\PartTrendSlope$\,ms per doubling,
 $p=\PartTrendP$, $n=32$ runs). The extreme configurations
-(\ScaleMinPeers{} and \ScaleMaxPeers{} peers, \PartRunsPerConfig{} runs
-each) differ by only \PartTostDiff\,ms, with a 90\% interval of
-[\PartTostLow, \PartTostHigh]\,ms entirely inside the
-$\pm$\DecisionMargin\,ms margin (Welch $t=\PartExtremeT$, $d=\PartExtremeD$,
-$p=\PartExtremeP$). A joint regression on peer count and centred run
+(\ScaleMinPeers{} and \ScaleMaxPeers{} peers) have a within-block mean
+difference of \PartTostDiff\,ms. Its 90\% interval,
+[\PartTostLow, \PartTostHigh]\,ms, is inside the exploratory
+$\pm$\DecisionMargin\,ms margin (TOST $p=\PartTostP$). This margin was
+selected after data inspection, so the result is not confirmatory. A joint
+regression on peer count and centred run
 sequence finds no sequence effect on the span once peer count is in the
-model ($p=\OrderEffectSpanP$), which the earlier single-run,
-ascending-order design could not have shown. Because the span does not
+model ($p=\OrderEffectSpanP$). Because the span does not
 shrink when peers are added, its share of the write path \emph{rises}: from
 \PartAccessPct\% at \ScaleMinPeers{} peers to \PartAccessPctAtMax\% of the
 smaller total at \ScaleMaxPeers{} peers. That is the opposite of what a
@@ -1175,9 +1170,8 @@ Table~S6). A nonsignificant interaction is not proof that the relative
 difference stays constant outside the tested range. It means only that no
 condition-by-concurrency interaction was detected within the precision of
 this experiment, across ten closed-loop concurrency levels from 10 to 100
-clients. For capacity planning this is nonetheless the useful reading:
-across the levels actually tested, budgeting roughly a tenth of platform
-throughput for authorization held up.
+clients. Across the measured levels, the mean difference is a
+workload-specific planning estimate, not a transferable capacity factor.
 
 Both configurations also reached their highest observed throughput at the
 same tested concurrency, \PeakBaselineTPS\,TPS for the baseline and
@@ -1198,7 +1192,7 @@ tested workload range, but the trace does not identify the responsible
 resource. Admission control or added capacity are therefore engineering
 options to test, not conclusions established by this experiment.
 
-\subsection{Confirmatory peer-multiplicity experiment}
+\subsection{Peer-multiplicity experiment}
 \label{subsec:scaling}
 
 Endorsing peers are normally added to raise physical capacity. Here we
@@ -1206,10 +1200,8 @@ increase configured logical peer multiplicity on four fixed physical
 hosts (Supplement Table~S3) and observe write latency, not capacity,
 respond. Figure~\ref{fig:scaling} reports write latency as configured peer
 count increases from \ScaleMinPeers{} to \ScaleMaxPeers{} at fixed offered
-concurrency, across \PartRunsPerConfig{} independent runs per configuration
-executed in counterbalanced order (Supplement Table~S8), replacing a
-  single-run-per-configuration design that could not separate a peer-count
-  effect from a time-correlated one; the
+concurrency, across \PartRunsPerConfig{} run-level observations per
+configuration executed in counterbalanced order (Supplement Table~S8); the
 full latency table is Supplement Table~S7.
 
 \begin{widefig}
@@ -1255,8 +1247,9 @@ log-linear at \ScaleSlope\,ms per doubling with $R^2 = \ScaleRSquared$
 across the four configuration means; the same effect, estimated jointly
 with run order on all 32 individual runs (Section~\ref{subsec:stats}),
 remains significant at $p\OrderEffectTotalPeerP$ while run order does not
-($p=\OrderEffectTotalP$), evidence a single-run, ascending-order design
-could not have produced. This campaign measured latency only, not
+($p=\OrderEffectTotalP$). The raw trace does not record reset completion,
+so residual carry-over remains within the study scope. This campaign
+measured latency only, not
 throughput, as a function of peer count (Scope~S2,
 Section~\ref{sec:discussion}); the separate, interleaved
 concurrency-throughput comparison of Section~\ref{subsec:throughput} used
@@ -1442,14 +1435,12 @@ ledger-row completeness separately.
 \label{sec:audit}
 %%============================================================================
 
-The implementation audit compared the released code with its specification.
-It identified four defects and one observability gap that the performance
-benchmarks did not expose. The residue transport and signature path are
-corrected in the released firmware and gateway code. The historical role
-hierarchy remains unchanged because \texttt{chaincode/hrbac/} is
-deliberately left exactly as deployed, and the fix is released separately
-(Section~\ref{subsec:pm_policy}), together with a fourth fix,
-Section~\ref{subsec:pm_crl} below, found while preparing the corrected implementation.
+The implementation audit compared the released code with its specification
+and identified four defects and one observability gap that the performance
+benchmarks did not expose. The historical implementation remains unchanged
+for reproducibility. Separate corrected packages address the policy,
+residue, signature and on-ledger revocation defects and add a revocation
+correlation identifier; their live-network performance has not been tested.
 
 \subsection{Authorization-policy findings}
 \label{subsec:pm_policy}
@@ -1460,8 +1451,7 @@ inheritance chain rather than beside it, so Agronomist and Farmer receive
 Table~\ref{tab:permdiff}), and Certifier itself holds \texttt{ReadZone}, so
 an auditor could read zone sensor data directly: the separation the
 introduction motivates was never in force for any of the \DeployDays{}
-days. A second defect, found reviewing an earlier draft of the correction
-below, is independent of the first: Agronomist also holds
+days. A separate direct-permission defect grants Agronomist
 \texttt{ControlZone} directly, inconsistent with the ``no actuation
 rights'' description in Section~\ref{sec:intro}.
 
@@ -1489,22 +1479,19 @@ performance re-run (S5); Section~\ref{subsec:security} confirms only that
 the tested requests activated the \emph{deployed} implementation's own
 recorded denial mechanisms, not that it validates the intended design.
 
-A performance re-run against a live Fabric network is still not done, but
-one narrower comparison now is. A Go benchmark calls \texttt{CheckAccess}
-directly against the same in-memory mock state both packages' test suites
-already use, holding the workload and hardware fixed while only the role
-hierarchy differs: one grant, one deny, 2\,000 calls each, repeated for 5
-runs (reproduce with \texttt{go test -bench=CheckAccess -benchtime=2000x
--count=5} in each package; raw benchmark output is in
-\texttt{CHAINCODE\_MICROBENCHMARK.md}. This software microbenchmark is reported directly rather than through the field-trace pipeline. Grant-path
+A Go benchmark compares \texttt{CheckAccess} in the deployed and corrected
+packages using the same in-memory mock state, workload and hardware. It
+executes one grant and one denial 2\,000 times in each of five runs
+(\texttt{go test -bench=CheckAccess -benchtime=2000x -count=5}); raw output
+is provided in \texttt{CHAINCODE\_MICROBENCHMARK.md}. Grant-path
 execution averages 282.9\,\textmu{}s (SD 11.8) for \texttt{chaincode/hrbac}
 against 276.9\,\textmu{}s (SD 4.9) for \texttt{chaincode/hrbac-corrected}
 (Welch $t=1.06$, $p=0.33$); deny-path execution averages 277.3\,\textmu{}s
-(SD 5.8) against 281.9\,\textmu{}s (SD 3.8) ($t=-1.48$, $p=0.18$). Neither comparison detected a statistically significant difference at this sample size; these results do not establish equivalence.
-This is Go execution time inside a mock stub, not endorsement, ordering or
-commit against a real network, so it bounds only the chaincode's own share
-of the question in Section~\ref{sec:discussion}'s scope table (S5):
-This narrow comparison did not detect a chaincode-execution difference, but its small sample and mock-stub environment do not bound the corresponding difference in a live Fabric deployment.
+(SD 5.8) against 281.9\,\textmu{}s (SD 3.8) ($t=-1.48$, $p=0.18$).
+Neither comparison detected a difference at this sample size, and neither
+establishes equivalence. These mock-stub execution times exclude endorsement,
+ordering, commitment and network delay, so they do not bound performance
+differences in a live Fabric deployment (S5).
 
 \subsection{Residue-recovery findings}
 \label{subsec:pm_crt}
@@ -1738,17 +1725,19 @@ the cause turns out to be; the corrected implementation's episode-correlation id
 (Section~\ref{subsec:pm_revocation}) is a smaller step in the same
 direction, aimed at measuring the problem rather than fixing it outright.
 
-Direct numerical comparison against prior systems is limited by
-methodological heterogeneity, hardware, workload, transaction semantics
-and what is counted as latency all differ (Supplement, Table~S1), a point
+Direct numerical comparison against prior systems is limited because
+hardware, workload, transaction semantics and latency definitions differ
+(Supplement, Table~S1), a point
 Abang et al.~\cite{abang2024latency} make about the Fabric latency
 literature generally; the comparison we regard as meaningful is the
 internal one, the same network, hardware and workload with and without
 the access-control layer (Section~\ref{subsec:throughput}), since it is
 reproducible from the released artifact.
 
-\subsection{Scope of validation}
+\subsection{Scope and validity}
 \label{subsec:notvalidated}
+\label{subsec:limits}
+\label{subsec:threats}
 
 The threat model treats orderers and the certificate authority as
 non-malicious under crash-fault-tolerant Raft, and physical tampering and
@@ -1775,74 +1764,30 @@ access-control \emph{layer} rather than an isolated permission decision.
 Table~\ref{tab:datavalidity} in Section~\ref{sec:audit} states, trace
 by trace, what remains usable after the audit.
 
-\subsection{Scope and validity}
-\label{subsec:limits}
-\label{subsec:threats}
-
 Table~\ref{tab:canonlimits} defines the evidence boundaries and the
 measurements needed to extend the study scope.
 
-\begin{table}[pos=t]
+\begin{widetab}[pos=t]
 \caption{Evidence boundaries and measurements required to extend the study scope.}
 \label{tab:canonlimits}
-\small
-\begin{tabularx}{\columnwidth}{@{}p{0.1\columnwidth}Xp{0.34\columnwidth}@{}}
+\footnotesize
+\begin{tabularx}{\linewidth}{@{}p{0.05\linewidth}Xp{0.38\linewidth}@{}}
 \toprule
 & Scope boundary & Extension required \\
 \midrule
-S1 & The recorded span's instrumentation boundaries are undocumented, so
-     it is not comparable to standalone \texttt{CheckAccess} latency, and
-     the remaining latency stays aggregated over ordering, validation,
-     commit and peer-insensitive endorsement work; operation and role
-     labels in the trace also do not separate policy-distinct executions,
-     so whether privilege level costs anything is untested. &
-     Both counters specified at the instruction level; a transaction
-     timestamped at each Fabric hand-off; a designed experiment varying
-     hierarchy depth and denial reason with workload fixed. \\
-S2 & The counterbalanced peer-scaling campaign controls for run order
-     within one follow-up campaign on the same four physical hosts used
-     throughout; it does not establish the result on different hardware
-     or in a different season, and it measured latency only, not
-     throughput, as a function of peer count. &
-     Configurations on physically distinct hosts, across seasons, with
-     throughput measured alongside latency. \\
-S3 & The interleaved concurrency benchmark used a fixed peer
-     configuration and ten-client sampling steps, so it cannot locate the
-     saturating resource or the true peak between tested levels. &
-     Orderer queue depth, block-fill rate and CouchDB service times under
-     a controlled intervention. \\
-S4 & The \SecAttempts{}-attempt authorization-boundary campaign is scored
-     against a permission oracle derived from the same \texttt{roles.go}
-     it tests, so a shared defect would not surface there; it is
-     conformance testing of the deployed policy, not validation of the
-     intended design or resistance to an adaptive adversary. An
-     independent, requirements-derived oracle
-     (\texttt{policy-requirements.json}, Section~\ref{subsec:pm_policy})
-     now cross-checks the full corpus on the role/operation dimension
-     (\SecOracleInScope{} of \SecAttempts{} attempts;
-     \SecOracleConsistentPct\% confirmed, \SecOracleDiscrepantPct\%
-     unresolved because the corpus lacks a zone/resource attribute), but
-     the corpus contains no permitted requests and the zone, temporal,
-     replay and identity dimensions remain scored against
-     \texttt{roles.go} directly. &
-     A permitted-request (not only denial) corpus; per-attempt zone and
-     resource-ownership attributes so the unresolved cases can be
-     adjudicated; mutation tests on inheritance edges; randomised testing
-     against a defined attack population. \\
-S5 & Revocation lifecycle stages in the historical trace carry no episode
-     key, so end-to-end exposure cannot be reconstructed from it, and the
-     corrected chaincode's performance on a real Fabric network has not
-     been re-measured; a chaincode-only microbenchmark (S1) finds no
-     measurable decision-cost difference, but that is not a network
-     measurement. &
-     For future collection: an episode key now exists in
-     \texttt{chaincode/\allowbreak hrbac-corrected} (Section~\ref{subsec:pm_revocation});
-     it needs a live deployment to populate it. A laboratory replay at
-     \ScaleMinPeers{} and \ScaleMaxPeers{} peers with the corrected code
-     is still the open item for network-level performance. \\
+S1 & Timer boundaries and policy-path labels are incomplete. &
+     Timestamp Fabric stages and vary hierarchy depth and denial reason. \\
+S2 & Logical peers were tested on four hosts in one campaign; peer-count throughput was not measured. &
+     Repeat across physical hosts and seasons, measuring latency and throughput. \\
+S3 & One ascending-concurrency session cannot identify capacity or the limiting resource. &
+     Randomise sessions and record queues, block fill and database service time. \\
+S4 & The denial-only corpus cannot estimate false denials or validate every policy dimension independently. &
+     Add permitted requests, zone and ownership fields, mutation tests and an external oracle. \\
+S5 & Historical stages lack episode keys, and corrected live-network performance is unmeasured. &
+     Populate the new episode key and repeat network benchmarks with corrected code. \\
 \bottomrule
 \end{tabularx}
-\end{table}
+\end{widetab}
 
 One deployment, one season, one site, and a workload dominated by a
 regular sensor-write stream: we regard the recorded span's small, stable
@@ -1934,21 +1879,10 @@ reported in this paper.
 
 \section*{Declaration of generative AI in the writing process}
 
-During the preparation of this work the authors used an AI coding assistant
-for language editing and for drafting code in the analysis pipeline
-(\texttt{analysis/derive\_results.py}) and its statistical routines. No
-AI-generated code contributes to a reported result without independent
-verification: every statistical routine is exercised by the test suite in
-\texttt{analysis/test\_manuscript\_consistency.py}, which recomputes every
-macro, table and figure from the raw traces and fails on any mismatch;
-select statistics (the peer-scaling Welch comparison of
-Section~\ref{subsec:scaling} and the throughput factorial model of
-Section~\ref{subsec:throughput}) were additionally reproduced with an
-independent, hand-written script (\texttt{analysis/independent\_check.py})
-using a different estimation path than \texttt{derive\_results.py}'s. The
-authors reviewed and edited all content, including all AI-drafted code,
-and take full responsibility for the content of the published article and
-the correctness of its computations.
+During preparation of this work, the authors used OpenAI Codex for language
+editing and for drafting analysis code. The authors reviewed and edited all
+generated content, verified the reported calculations against the released
+traces, and take full responsibility for the article.
 
 \section*{Acknowledgements}
 
