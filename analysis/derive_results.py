@@ -424,13 +424,11 @@ def analyse_decomposition(raw: Path, rng: np.random.Generator) -> dict:
 
         remaining latency = total latency - recorded span
 
-    Since the follow-up peer-scaling campaign (``run_id`` in
-    ``raw_latency_samples.csv``), each configured peer count has 5
-    independent runs rather than one continuous run, executed in a
-    counterbalanced order (see ``scripts/generate_peer_scaling_campaign.py``).
-    That makes the run, not the transaction, the unit for every comparison
-    below, and lets a run-order effect be tested directly rather than left as
-    an unexcluded possibility.
+    The peer-scaling campaign contains eight run-level observations per
+    configured peer count, arranged in eight counterbalanced blocks. That
+    makes the run, not the transaction, the unit for every comparison below.
+    Block membership also provides the pairing for the exploratory comparison
+    of the extreme peer configurations.
     """
     rows = [r for r in read_csv(raw / "raw_latency_samples.csv")
             if int(r["concurrent_clients"]) == 50 and r.get("run_id")]
@@ -462,12 +460,27 @@ def analyse_decomposition(raw: Path, rng: np.random.Generator) -> dict:
     lo, hi = peer_counts[0], peer_counts[-1]
     ac_means = [float(np.mean(ac[p])) for p in peer_counts]
 
-    # Is the recorded span invariant in peer count? Both a trend test and an
-    # equivalence test on the extreme configurations, now genuinely
-    # independent-samples comparisons since each group is 5 separate runs.
+    # Is the recorded span invariant in peer count? The trend is descriptive.
+    # The exploratory equivalence comparison pairs the extreme configurations
+    # within counterbalancing block, preserving the campaign design.
     slope, _, _, trend_p, _ = stats.linregress(np.log2(peer_counts), ac_means)
     anova_f, anova_p = stats.f_oneway(*(ac[p] for p in peer_counts))
-    extremes = tost_independent(ac[hi], ac[lo], EQUIVALENCE_MARGIN_MS)
+    span_by_block: dict[int, dict[int, float]] = defaultdict(dict)
+    for r in run_ids:
+        span_by_block[by_run[r]["replicate"]][by_run[r]["peers"]] = run_span_mean[r]
+    incomplete_blocks = [
+        block for block, values in span_by_block.items()
+        if lo not in values or hi not in values
+    ]
+    if incomplete_blocks:
+        raise ValueError(
+            "Cannot pair extreme peer configurations in blocks: "
+            + ", ".join(map(str, sorted(incomplete_blocks))))
+    paired_extreme_diffs = [
+        span_by_block[block][lo] - span_by_block[block][hi]
+        for block in sorted(span_by_block)
+    ]
+    extremes = tost_paired(paired_extreme_diffs, EQUIVALENCE_MARGIN_MS)
     extreme_welch = welch(ac[hi], ac[lo])
 
     # Order-effect check: does run sequence position predict the recorded
@@ -1313,6 +1326,7 @@ def emit_macros(results: dict, path: Path) -> None:
          f"{dec_p['invariance']['equivalence']['ci90_low']:.2f}"),
         ("PartTostHigh",
          f"{dec_p['invariance']['equivalence']['ci90_high']:.2f}"),
+        ("PartTostP", fmt_p(dec_p['invariance']['equivalence']['p'])),
         ("PartExtremeT", f"{abs(dec_p['invariance']['extreme_welch']['t']):.2f}"),
         ("PartExtremeD",
          f"{abs(dec_p['invariance']['extreme_welch']['cohens_d']):.2f}"),
@@ -1760,7 +1774,7 @@ def emit_tables(results: dict, out_dir: Path) -> None:
     w = ops["WriteSensor"]
     body = [
         f"\\texttt{{CheckAccess}} (pooled, committed) & \\num{{{sm['n']}}} & "
-        f"{sm['mean']:.1f} & {sm['sd']:.1f} & {sm['p95']:.1f} & --- \\\\",
+        f"{sm['mean']:.1f} & {sm['sd']:.1f} & {sm['p95']:.1f} & N/A \\\\",
         f"\\texttt{{WriteSensor}} (committed) & \\num{{{w['n']}}} & "
         f"{w['mean']:.1f} & {w['sd']:.1f} & {w['p95']:.1f} & {w['p99']:.1f} "
         "\\\\",
@@ -1845,17 +1859,10 @@ def emit_tables(results: dict, out_dir: Path) -> None:
         body.append(f"{peers} & {total:.1f} & {a:.1f} & {remaining:.1f} & "
                     f"{reduction:.1f} \\\\")
     write("tab_partition.tex",
-          "Write-path latency accounting at 50 concurrent clients. "
-          "\\emph{Recorded authorization span} is \\texttt{rbac\\_overhead\\_ms}, "
-          "instrumented on every write; \\emph{remaining latency} is total "
-          "latency minus that span, with no component inside it separately "
-          "measured. \\emph{Reduction vs.\\ \\ScaleMinPeers{} peers} is the "
-          "decrease in the remaining latency relative to the smallest "
-          "configuration. Values in ms; see Section~\\ref{subsec:decomposition}.",
+          "Write-path latency accounting at 50 concurrent clients.",
           "tab:partition", "@{}rrrrr@{}",
-          "Configured peers & Total latency & Recorded authorization span & "
-          "Remaining latency & Reduction in remainder vs.\\ "
-          "\\ScaleMinPeers{} peers \\\\", body)
+          "Peers & Total (ms) & Recorded span (ms) & "
+          "Remaining (ms) & Remainder decrease (ms) \\\\", body)
 
     # ---- peer-scaling run order (the counterbalancing design) -------------
     # Compact by block (8 rows), not by individual run (32 rows): what this
@@ -1863,10 +1870,7 @@ def emit_tables(results: dict, out_dir: Path) -> None:
     # already summarised in Table tab:scaling. Blocks 1-4 are a cyclic Latin
     # square and blocks 5-8 its reverse-cyclic complement, so each
     # configuration occupies each serial position exactly twice over the
-    # full campaign -- checkable directly from this table, unlike the
-    # 5-replicate design of an earlier revision, which could not actually
-    # give every configuration every position once (a reviewer premortem
-    # caught the arithmetic: 4 positions do not divide evenly into 5).
+    # full campaign, which is checkable directly from this table.
     by_block: dict[int, list[dict]] = defaultdict(list)
     for r in dec_p["run_order"]:
         by_block[r["replicate"]].append(r)

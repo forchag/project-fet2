@@ -39,14 +39,26 @@ mkdir -p supplement/figures tmp/pdfs/v14-crops
 # table and Fabric-pipeline figure added earlier in the document push the
 # throughput and scaling figures one page later than in V12, even though
 # the architecture and hierarchy figures land on the same pages as before.
-pdftoppm -f 4 -l 4 -singlefile -png -r 240 submission/V14-single-column.pdf tmp/pdfs/v14-crops/architecture
-pdftoppm -f 5 -l 5 -singlefile -png -r 240 submission/V14-single-column.pdf tmp/pdfs/v14-crops/hierarchy
-pdftoppm -f 12 -l 12 -singlefile -png -r 240 submission/V14-single-column.pdf tmp/pdfs/v14-crops/throughput
-pdftoppm -f 13 -l 13 -singlefile -png -r 240 submission/V14-single-column.pdf tmp/pdfs/v14-crops/scaling
-convert tmp/pdfs/v14-crops/architecture.png -crop 1620x620+100+220 +repage supplement/figures/figure_architecture.png
-convert tmp/pdfs/v14-crops/hierarchy.png -crop 1300x520+280+180 +repage supplement/figures/figure_hierarchy.png
-convert tmp/pdfs/v14-crops/throughput.png -crop 1620x430+100+210 +repage supplement/figures/figure_throughput.png
-convert tmp/pdfs/v14-crops/scaling.png -crop 1620x430+100+210 +repage supplement/figures/figure_scaling.png
+pdftocairo -f 4 -l 4 -singlefile -png -r 240 submission/V14-single-column.pdf tmp/pdfs/v14-crops/architecture
+pdftocairo -f 5 -l 5 -singlefile -png -r 240 submission/V14-single-column.pdf tmp/pdfs/v14-crops/hierarchy
+pdftocairo -f 12 -l 12 -singlefile -png -r 240 submission/V14-single-column.pdf tmp/pdfs/v14-crops/throughput
+pdftocairo -f 13 -l 13 -singlefile -png -r 240 submission/V14-single-column.pdf tmp/pdfs/v14-crops/scaling
+crop_png() {
+  local source="$1" geometry="$2" target="$3"
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    if convert "$source" -crop "$geometry" +repage "$target"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  echo "Unable to crop $source after five attempts" >&2
+  return 1
+}
+crop_png tmp/pdfs/v14-crops/architecture.png 1620x620+100+220 supplement/figures/figure_architecture.png
+crop_png tmp/pdfs/v14-crops/hierarchy.png 1300x520+280+180 supplement/figures/figure_hierarchy.png
+crop_png tmp/pdfs/v14-crops/throughput.png 1620x430+100+210 supplement/figures/figure_throughput.png
+crop_png tmp/pdfs/v14-crops/scaling.png 1620x430+100+210 supplement/figures/figure_scaling.png
 
 pdflatex -interaction=nonstopmode supplementary.tex >/tmp/v14-supp-1.log
 bibtex supplementary >/tmp/v14-supp-bib.log || true
