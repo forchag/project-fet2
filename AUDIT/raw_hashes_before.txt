@@ -1,0 +1,23 @@
+aaee1a9ee2dd8151109517082522713ed7b137b1c9f7de144a409aceebaeaf6d  data/raw/README.md
+1392b291d43d91ba2190b58cb47fcdfe6c9cfa1840efe484bba46967485f042f  data/raw/VALIDATION.md
+0c9a30e7125ff9913743489d3713f484eb052ae8e101aba80ec9c26a21ad2bb7  data/raw/raw_access_decisions.csv
+6d16d72303391cc8179f685724658b7260d37669b1a7a07c6310438c621bb007  data/raw/raw_crl_revocation_events.csv
+6a922af8f24af021a4909e5ff8241af3ee33a14ecb9569234e38823792ff906c  data/raw/raw_crypto_timing_samples.csv
+3b81a1fa808a166aafa7001a04b5718519b3f38c2770f41cdf2ceb622e1906fb  data/raw/raw_energy_samples.csv
+d76b0d0ec675ae0694eabecbd9b0b7a6fe0c3c263811cc895465e2f412348475  data/raw/raw_field_topology.csv
+045b5802026ddf8922fc8333b16cb08c00fabd96830b7adc3ec6014b765bdbe5  data/raw/raw_latency_samples.csv
+ff130411cd86861269b351f96cc1508084e5e4d8759ca69a70b669875e675201  data/raw/raw_security_attempts.csv
+7830d3daf75e092bd5888b65a36c20f5bafe974a10e8d28d3d1a9156439d525a  data/raw/raw_sensor_transactions.csv
+af95ec7bf48d7a17534a16fd0d9f8862ba64f3905f0ad1343cd197e57b81bce1  data/raw/raw_throughput_samples.csv
+f7d083425641743e2e98550036d9da44285726dc7225720daaca7f634306c655  data/raw/raw_uptime_events.csv
+  209001 data/raw/raw_access_decisions.csv
+     201 data/raw/raw_crl_revocation_events.csv
+    5001 data/raw/raw_crypto_timing_samples.csv
+    4001 data/raw/raw_energy_samples.csv
+      51 data/raw/raw_field_topology.csv
+    4661 data/raw/raw_latency_samples.csv
+    8001 data/raw/raw_security_attempts.csv
+  146401 data/raw/raw_sensor_transactions.csv
+     101 data/raw/raw_throughput_samples.csv
+       5 data/raw/raw_uptime_events.csv
+  377424 total
