@@ -1,6 +1,6 @@
 # Blochchain FET Farm Access-Control Demo
 
-> **Data provenance:** The datasets in this repository are real measured data. The current data collection was formed by merging the contents of two original data folders into one repository structure. The merge changed only the organization and consolidation of the records; it did not create artificial observations.
+> **Data provenance:** This repository contains a mixture of archived field traces, controlled benchmark output, reprocessed/synthetic campaign data, and paper-only claims. See `docs/REVIEWER_3_RECONCILIATION.md` and `data/raw/README.md`. A file is not treated as field-measured unless its acquisition log and instrumentation metadata are present.
 
 ## Prerequisites
 
@@ -68,7 +68,7 @@ The fifth command runs the Go and Python validation checks, then starts the Fabr
 
 ## Architecture
 
-The project models a single farm with 50 sensors distributed across four zone gateways. Gateways submit signed, CRT-encoded sensor readings to a Hyperledger Fabric network. Chaincode enforces hierarchical role-based access control (HRBAC), zone membership, nonces, certificate status, and temporal expiry.
+The project models a single farm with 50 sensors distributed across four zone gateways. Sensors submit unsigned 8-byte CRT residue packets. Gateways reconstruct each quantity, apply Ed25519 signatures, and submit the signed records to a Hyperledger Fabric network. Chaincode enforces hierarchical role-based access control (HRBAC), zone membership, nonces, certificate status, and temporal expiry.
 
 ```text
                  50 sensors total
@@ -100,7 +100,7 @@ The project models a single farm with 50 sensors distributed across four zone ga
 
 Important implementation notes:
 
-- Sensor readings use CRT moduli 97, 101, and 103; the largest unambiguous encoded value is `1,009,590` because `97 × 101 × 103 = 1,009,591`.
+- Sensor quantities use CRT moduli 97, 101, and 103. Full three-residue reconstruction is unique below 1,009,091; arbitrary two-residue reconstruction is claimed only for scaled quantity ranges below 9,797.
 - Gateway access decisions are cached for 300 seconds to reduce Fabric lookup overhead.
 - CRLs are generated from Fabric CA and published to chaincode for revocation checks.
 - The TLA+ access-control model can be checked with:
@@ -251,3 +251,4 @@ cd blochchain-fet/esp32 && idf.py -p /dev/ttyUSB0 flash monitor
 - ESP32 OTA update, automated eFuse read-protection provisioning, and key escrow/recovery workflows are intentionally left out of this demo.
 - LoRa regional duty-cycle compliance and adaptive data-rate policies must be validated for the deployment country and hardware.
 - Performance numbers are environment specific and should be remeasured on production-like hosts and radios.
+

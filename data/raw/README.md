@@ -2,10 +2,7 @@
 
 ## What is this?
 
-These CSV files contain **measured data** collected during the 61-day field
-deployment of the HRBAC Agricultural IoT system. The values were recorded
-directly from the running Hyperledger Fabric network, IoT sensors, gateways,
-and security test harness over the course of the evaluation period.
+These CSV files have **mixed provenance**. `raw_sensor_transactions.csv` is an archived deployment-shaped trace, while throughput, latency, security, peer-scaling and energy files include controlled test-harness output or reprocessed campaign data. The repository does not contain sufficient acquisition metadata to classify every row as a direct field measurement. Paper-only values must not be represented as measured unless the corresponding raw log is added.
 
 The same records are permanently stored on the Hyperledger Fabric ledger and
 can be independently retrieved by querying the chaincode at any time — the
@@ -35,7 +32,7 @@ They exist so that:
 
 ## Important notes
 
-- This is **real measured data** collected under actual field and experimental conditions. The repository dataset consolidates records that were previously stored in two separate source folders; those folders were merged to provide one complete, consistent data collection.
+- Provenance is file-specific. Controlled benchmark and reprocessed/synthetic outputs are not field workload observations. `raw_throughput_samples.csv` is a 60-second, five-repeat controlled service benchmark, not weekly field throughput. `raw_energy_samples.csv` contains aggregate per-transmission results, not the underlying 2 kHz INA219 current trace.
 - The authoritative source is the Hyperledger Fabric ledger; these CSVs are a local snapshot.
 - To retrieve records directly from the ledger, query the chaincode via the gateway.
 - **Do not overwrite** paper-reported benchmark data under `data/benchmarks/`.
@@ -100,3 +97,4 @@ none of which are derived from coordinates.
 The `model` and `cert_validity_months` columns describe the inventory record
 rather than the deployed firmware build, and are likewise unused by the
 analysis.
+

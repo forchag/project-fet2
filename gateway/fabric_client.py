@@ -8,6 +8,8 @@ import uuid
 from contextlib import contextmanager
 from typing import Any, Callable, Iterator
 
+from record_signing import GatewaySigner
+
 
 class FabricClient:
     """Invoke HRBAC chaincode transactions with nonce and retry handling.
@@ -21,6 +23,7 @@ class FabricClient:
         self,
         invoker: Callable[[str, dict[str, Any]], Any] | None = None,
         *,
+        signer: GatewaySigner | None = None,
         initial_backoff: float = 1.0,
         backoff_multiplier: float = 2.0,
         max_backoff: float = 60.0,
@@ -29,6 +32,7 @@ class FabricClient:
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         self.invoker = invoker or self._not_configured_invoker
+        self.signer = signer
         self.initial_backoff = initial_backoff
         self.backoff_multiplier = backoff_multiplier
         self.max_backoff = max_backoff
@@ -103,7 +107,10 @@ class FabricClient:
             payload = dict(reading.__dict__)
         else:
             payload = dict(reading)
-        return self._invoke("WriteSensorData", payload)
+        if self.signer is None:
+            raise RuntimeError("gateway signer is required for WriteSensorData")
+        return self._invoke("WriteSensorData", self.signer.attach_signature(payload))
 
     def revoke_certificate(self, certificate_id: str, reason: str = "cessationOfOperation") -> Any:
         return self._invoke("RevokeCertificate", {"certificate_id": certificate_id, "reason": reason})
+

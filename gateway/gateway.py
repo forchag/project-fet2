@@ -20,6 +20,7 @@ from enrollment_server import create_app
 from fabric_client import FabricClient
 from lora_rx import LoRaReceiver, SensorReading
 from policy_cache import PolicyCache
+from record_signing import GatewaySigner
 
 LOG = logging.getLogger(__name__)
 
@@ -118,7 +119,7 @@ class Gateway:
         lora_receiver: LoRaReceiver | None = None,
     ) -> None:
         self.zone = zone or load_gateway_zone()
-        self.fabric_client = fabric_client or FabricClient()
+        self.fabric_client = fabric_client or FabricClient(signer=GatewaySigner.from_environment())
         self.policy_cache = policy_cache or PolicyCache(ttl_seconds=300)
         self.lora_receiver = lora_receiver or LoRaReceiver()
         self.stop_event = threading.Event()
@@ -172,9 +173,9 @@ class Gateway:
         return False
 
     def handle_reading(self, reading: SensorReading) -> None:
-        if not verify_signature(reading):
-            LOG.warning("discarding reading %s from %s: invalid signature", reading.reading_id, reading.device_id)
-            return
+        # LoRa carries only the unsigned 8-byte residue packet. FabricClient
+        # signs the reconstructed record with the gateway Ed25519 key
+        # immediately before WriteSensorData submission.
         key = self.policy_key(reading)
         decision = self.policy_cache.get(key)
         if decision is None:
@@ -224,3 +225,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

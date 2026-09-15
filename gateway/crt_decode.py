@@ -1,28 +1,30 @@
-"""Chinese Remainder Theorem helpers for ESP32 sensor readings."""
+"""CRT helpers for the reviewer-corrected sensor transport."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-# Must match esp32/main/crt_encode.h.  Recovery from an arbitrary pair of
-# residues is unique only below the smallest pairwise product, so SAFE_MAX,
-# not MAX_VALUE, is the bound that applies to a transport designed to survive
-# losing one residue.
-MODULI: tuple[int, int, int] = (253, 254, 255)
-MAX_VALUE: int = 253 * 254 * 255
-SAFE_MAX_VALUE: int = 253 * 254
+MODULI: tuple[int, int, int] = (97, 101, 103)
+MAX_VALUE: int = 97 * 101 * 103
+SAFE_MAX_VALUE: int = min(a * b for i, a in enumerate(MODULI) for b in MODULI[i + 1 :])
 
 
-def encode(value: int) -> dict[int, int]:
-    """Encode an integer into residues for the ESP32 CRT moduli."""
+def encode(value: int, *, require_two_of_three: bool = True) -> dict[int, int]:
+    """Encode ``value`` using the paper's three pairwise-coprime moduli.
+
+    The stricter default bound is necessary only when any two residues are
+    claimed to reconstruct exactly. Full three-residue reconstruction supports
+    values from zero through ``MAX_VALUE - 1``.
+    """
     if not isinstance(value, int):
         raise ValueError("value must be an integer")
-    if value < 0 or value >= SAFE_MAX_VALUE:
-        raise ValueError(f"value must be in range 0..{SAFE_MAX_VALUE - 1}")
+    upper = SAFE_MAX_VALUE if require_two_of_three else MAX_VALUE
+    if value < 0 or value >= upper:
+        raise ValueError(f"value must be in range 0..{upper - 1}")
     return {modulus: value % modulus for modulus in MODULI}
 
 
-def _normalise_residues(residues: Mapping[int, int] | Sequence[object]) -> dict[int, int]:
+def _normalise(residues: Mapping[int, int] | Sequence[object]) -> dict[int, int]:
     if isinstance(residues, Mapping):
         items = residues.items()
     else:
@@ -39,47 +41,46 @@ def _normalise_residues(residues: Mapping[int, int] | Sequence[object]) -> dict[
                 modulus, residue = MODULI[index], item
             items.append((modulus, residue))
 
-    normalised: dict[int, int] = {}
+    result: dict[int, int] = {}
     for modulus, residue in items:
-        if modulus is None or residue is None:
-            continue
-        modulus = int(modulus)
-        residue = int(residue)
+        modulus, residue = int(modulus), int(residue)
         if modulus not in MODULI:
             raise ValueError(f"unsupported CRT modulus: {modulus}")
-        if residue < 0 or residue >= modulus:
+        if not 0 <= residue < modulus:
             raise ValueError(f"residue for modulus {modulus} must be in range 0..{modulus - 1}")
-        normalised[modulus] = residue
-    return normalised
+        result[modulus] = residue
+    return result
 
 
-def _mod_inverse(a: int, modulus: int) -> int:
-    return pow(a, -1, modulus)
+def decode(
+    residues: Mapping[int, int] | Sequence[object],
+    *,
+    admissible_upper_bound: int | None = None,
+) -> int:
+    """Reconstruct from two or three residues.
 
-
-def decode(residues: Mapping[int, int] | Sequence[object]) -> int:
-    """Decode a reading from any two or more distinct ESP32 CRT residues.
-
-    With all three residues, the result is unique across the full ESP32 range.
-    With two residues, the smallest non-negative solution for that residue pair is
-    returned; this matches gateway reassembly for sensor values constrained below
-    the product of the received moduli.
+    Three residues are unique below ``MAX_VALUE``. Two residues are accepted
+    only when the caller supplies an application bound no larger than the
+    received pair's product. This prevents an accidental unconditional
+    two-of-three recovery claim.
     """
-    normalised = _normalise_residues(residues)
+    normalised = _normalise(residues)
     if len(normalised) < 2:
         raise ValueError("at least two CRT residues are required")
 
-    modulus_product = 1
+    product = 1
     for modulus in normalised:
-        modulus_product *= modulus
+        product *= modulus
+    if len(normalised) == 2:
+        if admissible_upper_bound is None:
+            raise ValueError("two-residue decode requires an admissible_upper_bound")
+        if not 0 < admissible_upper_bound <= product:
+            raise ValueError("admissible_upper_bound exceeds the received modulus product")
 
-    value = 0
-    for modulus, residue in normalised.items():
-        partial = modulus_product // modulus
-        value += residue * partial * _mod_inverse(partial, modulus)
-
-    value %= modulus_product
-    if value < 0 or value >= MAX_VALUE:
-        raise ValueError(
-            f"decoded value outside supported range 0..{SAFE_MAX_VALUE - 1}")
+    value = sum(
+        residue * (product // modulus) * pow(product // modulus, -1, modulus)
+        for modulus, residue in normalised.items()
+    ) % product
+    if admissible_upper_bound is not None and value >= admissible_upper_bound:
+        raise ValueError("decoded value is outside the quantity's admissible range")
     return value
